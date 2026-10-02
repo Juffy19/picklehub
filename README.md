@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PickleHub
 
-## Getting Started
+PickleHub is a modern web platform for a specific pickleball facility.
 
-First, run the development server:
+It provides a digital home where players can learn pickleball, view facility courts, book courts, join Open Play sessions, participate in events, record games, track their progress, and connect with other players.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+> PickleHub is designed for managing and connecting players with one specific pickleball facility. It is not a marketplace for discovering courts across different locations.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Vision
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+PickleHub aims to provide a complete digital platform for a pickleball facility and its players.
 
-## Learn More
+### Players can
 
-To learn more about Next.js, take a look at the following resources:
+- Learn pickleball rules, scoring, techniques, and strategies
+- View the facility's courts
+- Check court availability
+- Book courts
+- Invite other players
+- Join public Open Play sessions
+- Participate in events and tournaments
+- Create player profiles
+- Record games
+- Track wins, losses, and statistics
+- Connect with other players
+- Eventually receive AI-powered pickleball assistance and coaching
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Facility administrators can
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Manage courts
+- Manage court availability
+- Manage bookings
+- Create and manage Open Play sessions
+- Manage player registrations and check-ins
+- Manage events and tournaments
+- Review game-result disputes
+- Manage facility settings
+- View operational information and statistics
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Core Product Concept
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+PickleHub is built around the following player journey:
+
+```text
+Learn
+  ↓
+Book / Join Open Play
+  ↓
+Check In
+  ↓
+Playing Session
+  ↓
+Play Games
+  ↓
+Record Result
+  ↓
+Confirm Result
+  ↓
+Update Player Statistics
+  ↓
+Smart Rotation
+  ↓
+Play Again
+  ↓
+Connect With Players
