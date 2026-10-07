@@ -3,6 +3,7 @@
 > Status: Architecture Definition
 > Product source of truth: docs/01-product-requirements.md
 > This document defines the application's architectural structure and technical boundaries. It does not replace the product requirements.
+> Step 5 update: approved database and implementation decisions are recorded in `docs/03-step-5-database-decisions.md`. Section 23 summarizes how they update this document; sections affected carry a "Step 5 update" note. The original Step 4 text is preserved.
 
 ---
 
@@ -237,9 +238,11 @@ These are separate concerns. Being signed in never implies permission to act on 
 |---|---|---|
 | Visitor | Unauthenticated | Can access public content such as the public website. Not a stored role. |
 | Player | Global | Authenticated user with a player profile. |
-| Session Host | Contextual | Applies to a specific private booking and its Playing Session. Not automatically a global role. The private booking creator is the default Session Host. |
-| Facility Admin | Global | Facility management, including resolving disputed results. |
-| Facility Staff | Future | May be introduced later. Detailed permissions are not yet defined. |
+| Session Host | Contextual | Applies to a specific private booking and its Playing Session. Not automatically a global role. The private booking creator is the default Session Host. *Step 5 update:* for an Open Play, the Session Host is the designated Open Play Host (U19). |
+| Open Play Host | Contextual | *Step 5 addition (U19).* Designated per Open Play; must be an authorized Facility Admin; receives normal Session Host gameplay authority; cannot resolve disputes. |
+| Authorized Scorer | Contextual | *Step 5 addition (U5, I5/I6).* Designated per Playing Session by the Session Host or a Facility Admin; registered user; may submit final scores; cannot confirm Game completion in MVP. |
+| Facility Admin | Global | Facility management, including resolving disputed results. *Step 5 update:* may also hold the Player role (U14); cannot resolve a dispute for a game they hosted or played in (I1). |
+| Facility Staff | Future | May be introduced later. Detailed permissions are not yet defined. *Step 5 update:* Step 1's "owner or staff members" are represented by Facility Admin in MVP. |
 
 ### 6.3 Authorization Points
 
@@ -310,6 +313,8 @@ Exact constraint implementations are part of database design.
 
 ### 7.4 Idempotency and Concurrency
 
+> **Step 5 update (U5, U17, U1, B1):** Results are confirmed by the Session Host (or a Facility Admin), not by each participant, so the per-participant confirmation invariant in 7.3 and the "two players confirming" example are superseded. Concurrency protection now applies to result submission/versioning (every resubmission creates a new version and supersedes the previous one), host confirmation, dispute creation (at most one active dispute per result), and next-game generation.
+
 - Repeated or concurrent requests (for example, two players confirming at the same moment) must not create duplicate games, duplicate confirmations, or double-counted statistics.
 - Next-game generation must be safe to retry.
 
@@ -341,6 +346,8 @@ This section describes conceptual data areas only. It is not a schema.
 | Future | Events, tournaments, groups, AI interaction data |
 
 ### 8.2 Data Rules
+
+> **Step 5 update:** Facility identity (including timezone) and Facility Configuration (booking rules and gameplay defaults) are separate entities. Records reference the single facility through `facility_id` as a facility-context reference, not a multi-tenant key (ADR-16). Recurring Open Play uses a Recurring Open Play Schedule that generates independent instances (U8, B2). Game Results are versioned with one authoritative version (U1, B1). Audit history is a locked Step 5 entity, not only a recommendation. Full entity decisions: `docs/03-step-5-database-decisions.md`.
 
 - **Single facility.** Facility-level configuration is held as single-facility settings. Tables do not carry multi-facility tenant keys.
 - **Identity.** Authenticated identities are managed by Supabase Auth and linked to PickleHub player profiles.
@@ -376,6 +383,21 @@ Rules:
 ---
 
 ## 10. State Lifecycles
+
+> **Step 5 update:** The lifecycle states are now finalized in `docs/03-step-5-database-decisions.md` and take precedence over the open notes in this section:
+>
+> - Booking: CONFIRMED, CANCELLED, COMPLETED (no pending state; no payment state — U11)
+> - Open Play: SCHEDULED → REGISTRATION_OPEN → SESSION_READY → ACTIVE → COMPLETED; CANCELLED from the first three (U13); SESSION_READY → COMPLETED with fewer than 4 eligible players (I4(c))
+> - Registration: REGISTERED, CANCELLED
+> - Check-In: CHECKED_IN, CHECKED_OUT (attendance only — U12, I3)
+> - Session Participant: ACTIVE, LEFT (sole authority for future gameplay eligibility — I3)
+> - Playing Session: CREATED, READY, ACTIVE, COMPLETED
+> - Game: SCHEDULED → ACTIVE → COMPLETED (U2–U4)
+> - Game Result: SUBMITTED → CONFIRMED or SUPERSEDED; CONFIRMED → SUPERSEDED (U2, B1)
+> - Dispute: DISPUTED → ADMIN_REVIEW → RESOLVED, raised after confirmation; it does not reopen the Game (U2–U4)
+> - Booking Invitation: PENDING → ACCEPTED / DECLINED / CANCELLED (U10)
+>
+> Confirmation is by the Session Host (U5, U17); the 10.7 statement "Other participating players can confirm the result" is superseded.
 
 Each entity below has an explicit lifecycle enforced by domain logic and protected by database integrity where appropriate. **Status names and the full set of states are not finalized**; they will be defined during database and feature design. The descriptions below capture only what is already established.
 
@@ -441,6 +463,8 @@ Each entity below has an explicit lifecycle enforced by domain logic and protect
 
 ## 11. Booking vs Open Play Participation Model
 
+> **Step 5 update:** Private bookings: the Booking Owner automatically participates (I7); other registered players join through accepted invitations (U10); guests are added directly by the owner. Private gameplay mode is selected per Playing Session — SMART_ROTATION or FIXED_PARTNERS in MVP, TOURNAMENT future (U6, U7) — replacing "rotation optional/enabled". Open Play: self check-in, FACILITY_ADMIN correction, no anonymous guests, no waitlist, multiple reserved courts, explicit start by the Open Play Host (U19). Eligibility for future games is determined solely by Session Participant status (I3).
+
 Court Booking and Open Play are different products within PickleHub (product requirements §28). Their participation rules are deliberately separate.
 
 | Aspect | Private Court Booking | Open Play |
@@ -489,6 +513,8 @@ Registered player
 
 ## 12. Guest Participant Model
 
+> **Step 5 update (U5, U15, I14):** Guest Identity is associated with the private Booking context and is not a global identity; no automatic merging. Guests cannot be Authorized Scorers and cannot file formal disputes (the Session Host may file on their behalf). Guest participation is preserved; guests do not receive persistent global statistics, while confirmed participation still counts for registered players. Open Play does not allow anonymous guests in MVP.
+
 - Private bookings may support guest participants who do not have an authenticated PickleHub account.
 - Guest participants are associated with the specific private booking/Playing Session.
 - Guest participants must not receive official statistics tied to an authenticated player profile until their identity is safely claimed/verified.
@@ -500,6 +526,8 @@ Open questions (section 20): the guest identity claim/verification process; whet
 ---
 
 ## 13. Smart Rotation Architecture
+
+> **Step 5 update:** Rotation supports multiple courts and simultaneous games (maximum one active Game per court per session), so outputs may include more than one game. Primary fairness inputs: games played, waiting time, avoiding consecutive games; variety: partners/opponents; wins/losses are secondary. Rotation scope is the current Playing Session. FIXED_PARTNERS uses deterministic team-vs-team matchup generation (not Smart Rotation) over persistent Session Teams (U6). Exact weights remain deferred.
 
 ### 13.1 Principles
 
@@ -546,6 +574,8 @@ The rotation engine receives an explicit snapshot, including:
 ---
 
 ## 14. Statistics Architecture
+
+> **Step 5 update (U1, U3, U4, U16):** Official statistics use the authoritative CONFIRMED Game Result that is not under an active Dispute, together with the authoritative Game participation (including Facility Admin participant corrections). Because disputes are raised after confirmation, a confirmed result can later be excluded while disputed, and statistics are recalculated after a correction.
 
 - **Source of truth.** Confirmed games/results are the source of truth for official statistics.
 - **Confirmation first.** Result confirmation must occur before official statistics update.
@@ -595,6 +625,13 @@ AI is advisory only.
 ---
 
 ## 16. Critical Application Flows
+
+> **Step 5 update:** The following flows are superseded in part:
+>
+> - **16.6** — the Session Host or an Authorized Scorer submits; the Session Host (or a Facility Admin) confirms; participant confirmations are not used (U5, U17). Resubmissions create new Result versions (B1). No automatic timeout (I8).
+> - **16.7–16.9** — on host confirmation: Result CONFIRMED → Game COMPLETED → statistics → next game (U3).
+> - **16.10** — disputes are raised after confirmation by registered participants (or the Session Host on a guest's behalf); the Game stays COMPLETED; a non-conflicted Facility Admin resolves by upholding or creating a corrected Result version; later games are not regenerated (U1–U4, U15, I1).
+> - **16.11** — new registered participants join through accepted invitations; the owner is already a participant (U10, I7). No new Game starts after the Booking end (U18).
 
 Each flow follows the same pattern: a thin server entry point → an application service that authenticates, authorizes, and validates → pure domain decisions → atomic persistence → a minimal response.
 
@@ -744,7 +781,7 @@ All decisions in this table are **Confirmed**.
 
 | ID | Decision | Rationale |
 |---|---|---|
-| ADR-01 | **Single-facility model.** PickleHub represents one specific facility; no multi-facility tenancy. | The product is a digital home for one facility, not a marketplace. Avoiding tenancy keeps the model and authorization simpler. |
+| ADR-01 | **Single-facility model.** PickleHub represents one specific facility; no multi-facility tenancy. *(Data-modeling wording amended by ADR-16.)* | The product is a digital home for one facility, not a marketplace. Avoiding tenancy keeps the model and authorization simpler. |
 | ADR-02 | **Layered architecture:** Presentation → Application → Domain → Data Access → Database. | Separates UI, orchestration, business rules, and persistence so each can be understood and tested independently. |
 | ADR-03 | **Deterministic domain logic** independent of React, Next.js, Supabase, browser APIs, and UI. | Core rules (booking, scoring, confirmation, rotation, statistics) must be testable and produce the same output for the same input. |
 | ADR-04 | **Server-authoritative writes.** The browser is never the final authority; server entry points are thin and authorize every request. | Server Functions are publicly reachable; client state can be manipulated. Sensitive decisions must be made and verified on the server. |
@@ -759,10 +796,19 @@ All decisions in this table are **Confirmed**.
 | ADR-13 | **Authentication and authorization are separate;** roles initially Player, Session Host (contextual), and Facility Admin. | Prevents "signed in" from being mistaken for "permitted"; Session Host authority is scoped to a specific private booking. |
 | ADR-14 | **Availability is calculated** from facility/court/booking/session state, never from a trusted client-side flag. | Availability is a derived, deterministic result and a common target for manipulation. |
 | ADR-15 | **Small, incremental project structure.** `src/lib/domain/<area>` and `src/lib/server/...` introduced only when justified. | Avoids premature abstraction while providing an agreed path for growth. |
+| ADR-16 | **Facility-context reference (Step 5).** Facility-owned records reference the single Facility through `facility_id`. It is not a tenant key and must not be used to introduce multi-facility features. | Keeps facility ownership explicit while preserving ADR-01. Supersedes the §8.2 wording "Tables do not carry multi-facility tenant keys". |
+| ADR-17 | **Host confirmation (Step 5: U5, U17, I5/I6, I8).** The Session Host confirms results; Authorized Scorers may submit; Facility Admins may intervene; no automatic timeout. | Low-friction recording with post-confirmation disputes as the safeguard. Supersedes participant confirmation. |
+| ADR-18 | **Versioned results and separate lifecycles (Step 5: U1–U4, B1).** Game, Game Result, and Dispute have separate lifecycles; results are never overwritten; one authoritative version. | Preserves history while allowing result authority to change. |
+| ADR-19 | **Disputes after confirmation with conflict-of-interest rule (Step 5: U15, I1).** | Disputed results are excluded from official statistics until resolved by a non-conflicted Facility Admin. |
+| ADR-20 | **Private gameplay modes (Step 5: U6, U7).** SMART_ROTATION and FIXED_PARTNERS in MVP; TOURNAMENT future. | Supports fixed-partner play without changing the shared Game → Result → Statistics pipeline. |
+| ADR-21 | **Recurring Open Play Schedule (Step 5: U8, B2).** Weekly MVP recurrence generating independent instances. | Preserves per-instance history; schedule changes never rewrite instances. |
+| ADR-22 | **Payments excluded from MVP; fees informational (Step 5: U11, I12).** | Keeps booking authority independent of payment; future Payment domain. |
 
 ---
 
 ## 20. Open Questions
+
+> **Step 5 update:** Many of these questions have been resolved by approved Step 5 decisions. Section 23.2 lists which questions are resolved and which remain open. The original questions are preserved below for traceability.
 
 These are **open product questions**. They must be answered before the related feature is implemented. They must not be resolved by assumption in code.
 
@@ -819,6 +865,8 @@ These are **open product questions**. They must be answered before the related f
 
 ## 21. Deferred Decisions
 
+> **Step 5 update:** Notification delivery is now decided: in-app and email for MVP. Payment processing is excluded from MVP (U11, I12). Statistics storage remains as stated: cached statistics are optional and rebuildable. Additional deferred items are listed in `docs/03-step-5-database-decisions.md` sections 8 and 8.1.
+
 These are **deferred technical decisions**. They do not require new product rules but will be decided at the appropriate implementation stage.
 
 | Decision | Decide by |
@@ -860,6 +908,72 @@ Next stage:
 
 - Database & implementation design, guided by the confirmed decisions in section 19
 - Open questions in section 20 are resolved as the related features are reached
+
+Step 5 update:
+
+- Step 5 database and implementation decisions are finalized in `docs/03-step-5-database-decisions.md`.
+- The next stage is Step 6 — physical PostgreSQL/Supabase schema design.
+
+---
+
+## 23. Step 5 Decision Updates
+
+This section summarizes how the approved Step 5 decisions (`docs/03-step-5-database-decisions.md`) update this architecture document. The original sections are preserved; where they differ, this section and `docs/03` take precedence.
+
+### 23.1 Superseded or Refined Architecture Rules
+
+| Section | Original rule | Current rule | Decision |
+|---|---|---|---|
+| 6.2, ADR-13 | Session Host applies to private bookings | Also the Open Play Host (a Facility Admin) for Open Play sessions; Authorized Scorer added as a session-scoped role | U5, U19, I5/I6 |
+| 6.2 | Roles listed separately | One account may hold Player and Facility Admin | U14 |
+| 6.2 | Facility Staff future | Step 1 "staff members" represented by Facility Admin in MVP; Facility Staff deferred | U14, U19 |
+| 7.3, 7.4, 10.7, 16.6 | Participants confirm results | Session Host confirms; Authorized Scorer submits; Facility Admin may intervene; no timeout | U5, U17, I5/I6, I8 |
+| 8.2, ADR-01 | No multi-facility tenant keys | `facility_id` as single-facility context reference | ADR-16 |
+| 8.2 | Audit history is a recommendation | Audit history is a locked entity | Step 5 §5.32 |
+| 10.6–10.8, 16.10 | Dispute against a submitted result; lifecycle open | Separate Game / Result / Dispute lifecycles; dispute after confirmation; Game stays COMPLETED; result versions | U1–U4, B1 |
+| 11, 13 | Rotation optional/enabled for private bookings | Gameplay modes SMART_ROTATION / FIXED_PARTNERS (MVP), TOURNAMENT (future) | U6, U7 |
+| 11 | Participants invited/added (mechanics open) | Owner auto-participant; invitations for registered players; guests direct | U10, I7 |
+| 11.2, 16.3 | Who checks in open; eligibility via check-in | Self check-in, Facility Admin correction; Session Participant status sole eligibility authority | U12, I3 |
+| 12 | Guest scope and rights open | Private-context Guest Identity; no scoring; disputes via host | U5, U15, I14 |
+| 13.3 | Single next-game output | Multiple courts, simultaneous games | Step 5 §5.7 |
+| 14 | Statistics from confirmed results | Authoritative CONFIRMED Result without active Dispute + authoritative participation | U1, U3, U4, U16 |
+| 21 | Notification delivery deferred | In-app + email | Step 5 §5.30 |
+
+### 23.2 Section 20 Open Questions — Status
+
+| Question | Status | Resolution |
+|---|---|---|
+| Q1 — confirmations required | Resolved | Session Host confirms (U5, U17) |
+| Q2 — unconfirmed result timeout | Resolved | No automatic timeout in MVP; future behavior deferred (I8) |
+| Q3 — who submits | Resolved | Session Host, Authorized Scorer, Facility Admin (U5) |
+| Q4 — dispute raising, states, outcomes | Resolved | Registered participants / host for guests; DISPUTED → ADMIN_REVIEW → RESOLVED; upheld or corrected (U2, U4, U15) |
+| Q5 — dispute pauses rotation | Resolved | Disputes follow confirmation; later games are not regenerated (U4) |
+| Q6 — rotation weights and tie-breaking | Deferred | Exact algorithm deferred (Step 5 §5.7) |
+| Q7 — wins/losses in rotation | Resolved in part | Secondary, not primary; exact use deferred |
+| Q8 — multiple courts per Open Play | Resolved | Supported (Step 5 §5.26) |
+| Q9 — singles | Open | MVP is doubles; design flexible for future singles |
+| Q10 — late join / leave | Resolved | Future games only; LEFT excludes from future generation (U12, I3) |
+| Q11 — private rotation optional | Resolved | Gameplay modes (U6, U7) |
+| Q12 — booking states | Resolved | CONFIRMED, CANCELLED, COMPLETED |
+| Q13 — slot granularity / durations | Resolved | No fixed slots; durations configurable |
+| Q14 — back-to-back bookings | Resolved | Allowed; [start, end) |
+| Q15 — cancellation / advance window | Resolved | Configurable |
+| Q16 — Open Play / blockouts vs availability | Resolved | Included in calculated availability |
+| Q17 — private booking participant limits | Open | Not decided |
+| Q18 — who checks in | Resolved | Self check-in; Facility Admin correction |
+| Q19 — check-in window / late arrival | Resolved in part | Late arrivals join future games; check-in window deferred |
+| Q20 — who starts/ends Open Play | Resolved | Open Play Host (Facility Admin), explicit start/end (U19) |
+| Q21 — waitlists | Resolved | No waitlist in MVP |
+| Q22 — invitations | Resolved | Invitation/acceptance for registered players (U10) |
+| Q23 — guest identity claim | Deferred | Requires explicit verification (I14) |
+| Q24 — guests submit/confirm | Resolved | Guests cannot score or dispute directly (U5, U15) |
+| Q25 — guest games and registered stats | Resolved | Confirmed participation counts for registered players; guests get no global stats |
+| Q26 — payments | Resolved | Excluded from MVP; fees informational (U11, I12) |
+| Q27 — Facility Staff permissions | Deferred | Facility Staff role deferred |
+| Q28 — profile visibility | Open | Not decided |
+| Q29 — attendance vs playing for stats | Resolved in part | Attendance from check-in; "Court Sessions Played" definition still to confirm |
+| Q30 — game in progress at session end | Resolved | Unresolved active game prevents normal completion; booking-end overrun handling deferred (U18) |
+| Q31 — Learn content management | Open | Not decided |
 
 ---
 

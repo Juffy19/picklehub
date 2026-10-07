@@ -2,6 +2,7 @@
 
 > This is the finalized Step 1 product specification for PickleHub (Version 1.0).
 > It is the primary source of product requirements for the project.
+> The original Step 1 text below is preserved unchanged. Approved later amendments are recorded in the "Post-Step-1 Amendments" section at the end of this document and take precedence where they differ. Full decision details are in `docs/03-step-5-database-decisions.md`.
 
 **Project Type:** Pickleball Facility Management & Community Platform\
 **Working Name:** PickleHub\
@@ -2241,3 +2242,67 @@ Step 1 is considered complete when we agree on:
 
 The next stage is **Step 2 --- Development Environment & Project
 Setup**.
+
+---
+
+## Post-Step-1 Amendments
+
+The following product amendments were approved during Step 5 (Database & Implementation Decisions). The original Step 1 sections above are preserved as the historical record; where they differ, these amendments take precedence. Decision IDs refer to `docs/03-step-5-database-decisions.md`.
+
+### A1. Result Recording and Confirmation (supersedes the confirmation flow in §15, §16, §43)
+
+- The Session Host (or an Authorized Scorer designated for the Playing Session) submits the final team scores. Only final scores are recorded.
+- The Session Host confirms "Game Complete". Confirmation by every player is not required, and the host may confirm a game they played in (U5, U17).
+- Authorized Scorers can submit scores but cannot confirm Game completion in MVP (U5, I5/I6).
+- A FACILITY_ADMIN may submit and confirm when necessary (U5).
+- There is no automatic confirmation or timeout; a submitted result waits for the Session Host or a FACILITY_ADMIN (I8).
+- Every resubmission or correction creates a new result version; results are never overwritten (U1, B1).
+
+### A2. Disputes (refines §16, §43)
+
+- Registered players may dispute a confirmed result. Guests raise concerns through the Session Host, who may file the dispute on their behalf (U15).
+- A FACILITY_ADMIN resolves disputes, excluding an admin who was the Session Host, the Open Play Host, or a participant in the disputed game (I1).
+- A disputed result is excluded from official statistics until resolved. A dispute does not reopen the game, and later games are not regenerated (U2–U4).
+- Incorrect player/team assignments are corrected by a FACILITY_ADMIN without destroying the original record (U16).
+
+### A3. Private Booking Gameplay Modes (refines §28 "Rotation: Optional")
+
+- Smart Rotation: partners and opponents rotate deterministically.
+- Fixed Partners: partners stay together for the session; the system deterministically generates team-vs-team matchups and courts (U6).
+- Tournament: a recognized future mode, not enabled in MVP (U7).
+- Open Play always uses Smart Rotation.
+
+### A4. Open Play (refines §10–§14, §28, §43)
+
+- An Open Play may reserve one or more courts.
+- Capacity is registration capacity. There is no waitlist in MVP.
+- Each Open Play has an informational skill level: BEGINNER, INTERMEDIATE, ADVANCED, or ALL_LEVELS. It does not restrict registration, check-in, or rotation (U9).
+- Open Play is started explicitly by the designated Open Play Host, who must be a FACILITY_ADMIN (U19). It does not start automatically at the scheduled time.
+- Players may check themselves in; a FACILITY_ADMIN may correct attendance.
+- If fewer than 4 eligible players are checked in when the Open Play is ready, gameplay does not start and the Open Play may be completed without games (I4(c)).
+- The facility may cancel an Open Play before it becomes active (U13).
+- No anonymous guests in Open Play in MVP.
+
+### A5. Recurring Open Play (refines §11)
+
+- A Recurring Open Play Schedule generates independent Open Play instances: weekly on a selected day of week, with start time, end time, start date, optional end date, in the facility timezone (U8, B2).
+- Each instance is independent (registrations, attendance, gameplay, cancellation). Changing or deactivating a schedule does not change existing instances.
+- Generated instances are validated against operating hours, court availability, bookings, court blockouts, and facility closures; conflicts require facility-admin review and are never silently resolved (B2).
+
+### A6. Booking Participants and Invitations (refines §7, §9, §27)
+
+- The Booking Owner automatically participates in the booking (I7).
+- Other registered players join by invitation and must accept (U10).
+- Guests without accounts may be added directly by the Booking Owner. Guests cannot own bookings, score, or file formal disputes, and do not receive persistent global statistics (U10, U5, U15, I14).
+
+### A7. Fees and Payments (refines §10, §12, §28, §36)
+
+- Payment processing is excluded from MVP. Booking confirmation does not depend on payment (U11).
+- An Open Play may display an informational fee; it creates no payment state (I12).
+- Future payments will be a separate Payment domain.
+
+### A8. Roles
+
+- One account may be both a Player and a Facility Admin (U14).
+- "Facility Administrators: the facility owner or staff members" (§3.3) is represented by the FACILITY_ADMIN role in MVP; a separate Facility Staff role is deferred.
+- Session Host, Open Play Host, and Authorized Scorer are contextual to a specific session, not global roles.
