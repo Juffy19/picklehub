@@ -494,6 +494,8 @@ Document roles:
 - `docs/01-product-requirements.md` — the finalized Step 1 product specification and the primary source of product requirements (including its Post-Step-1 Amendments).
 - `docs/02-application-architecture.md` — the application architecture and technical boundaries.
 - `docs/03-step-5-database-decisions.md` — the approved Step 5 database and implementation decisions, including resolved decisions U1–U19 and the final consistency decisions. It is the source of truth for entity, lifecycle, and data-integrity decisions before physical schema design.
+- `docs/04-step-6-database-schema-design.md` — Step 6 schema design and supporting decisions (Step 6.1 conventions C1–C10; Step 6.2 decisions and reconciliation items), with references to related decisions elsewhere. It does not change Step 5 decisions.
+- `Notes.md` — shared progress tracker for the project owner and ChatGPT: approved decisions, proposed decisions, open questions, document status, and next actions. Formal documents govern if they differ.
 - `CLAUDE.md` — Claude Code's development behavior and project-specific engineering rules.
 - `README.md` — human-facing project documentation.
 - `AGENTS.md` — framework and agent guidance (including Next.js version notes).
@@ -504,11 +506,21 @@ If these documents appear to conflict, do not silently choose a requirement. Exp
 
 If a requirement is ambiguous or missing, stop and ask for clarification rather than silently inventing behavior.
 
+Decision ownership (approved in `docs/04` section 3.10, item 11): `docs/01` owns user-facing behavior and product policies; `docs/02` owns architectural responsibilities, boundaries, and constraints; `docs/03` owns database-related business rules and their data and lifecycle implications; each step document owns that step's design decisions. Do not duplicate whole decisions across documents; a cross-document update must preserve meaning and name the authoritative source.
+
+### Step Documentation Workflow
+
+- **Primary files.** For every step, the step's own document and `Notes.md` are the primary files to update. For Step 6 these are `docs/04-step-6-database-schema-design.md` and `Notes.md`.
+- **Next step.** Only after the current step is formally finalized and the owner explicitly approves the transition, create the next numbered document (for Step 7, `docs/05-<step-7-name>.md`) and make it and `Notes.md` the primary files. Do not assume or invent a step's title or scope before it is approved. Repeat this for every later step.
+- **Earlier documents.** Earlier documents stay authoritative for their own approved decisions. Change them only when a new, explicitly approved decision requires a correction, clarification, or cross-document consistency change — never merely because the active step changed. When you do, preserve historical wording where appropriate, record the clarification or superseding decision explicitly, and update references consistently.
+- **Step transitions.** Approving an individual decision does not approve a step. Do not create the next step's document or begin the next step until (1) the current step's required decisions are reviewed, (2) its document and `Notes.md` are reconciled, (3) the owner has reviewed the changes, (4) required validation is completed and reported, and (5) the owner explicitly approves finalization and transition. A proposal, recommendation, or open question is never an approved decision.
+- **Notes synchronization.** Reflect every approved decision, open question, deferral, step status change, and next action in `Notes.md`. Keep these distinct: approved decisions; proposed decisions awaiting approval; open questions and deferred details; documentation completed but awaiting review; formally finalized steps; and the next approved action. Never mark a step finalized only because its individual decisions are approved.
+
 ---
 
 ## 14. Current Development Stage
 
-The next stage is Step 6 — Physical Database Schema Design.
+The most recent stage is Step 6 — Physical Database Schema Design. Step 6.1 — Database Conventions is approved and complete (`docs/04-step-6-database-schema-design.md`); Step 6 documentation was formally finalized by the project owner on 2026-10-23: decisions 6.2.1–6.2.131 are approved and recorded in `docs/04` section 3 as reconstructed summaries, not verbatim approval records; reconciliation items 1–12 are approved and reviewed (`docs/04` section 3.10); remaining policy and implementation questions are deferred and still open, and physical database implementation is not yet authorized. Decision 6.2.132 has not started and requires separate explicit owner authorization. Step 7 has not started and requires separate explicit owner authorization.
 
 Completed:
 
@@ -519,10 +531,11 @@ Completed:
 - GitHub repository
 - Application architecture (`docs/02-application-architecture.md`)
 - Step 5 Database & Implementation Decisions — finalized (`docs/03-step-5-database-decisions.md`)
+- Step 6 — Physical Database Schema Design documentation — formally finalized 2026-10-23 (`docs/04-step-6-database-schema-design.md`); this does not include physical database implementation
 
 Upcoming stages include:
 
-- Step 6 — Physical Database Schema Design
+- Step 6 follow-up — physical database implementation of the finalized design and the deferred questions recorded in `docs/04` (not yet authorized)
 - Design system
 - Public website
 - Court pages
@@ -537,3 +550,20 @@ Upcoming stages include:
 - Community
 - Admin dashboard
 - AI features
+
+---
+
+## 15. Database Conventions
+
+Approved in Step 6.1 as conventions C1–C10. Full record: `docs/04-step-6-database-schema-design.md` section 2. These conventions do not change any Step 5 decision.
+
+- **Keys:** UUID primary keys named `id`, generated by PostgreSQL/Supabase. Foreign keys use the singular entity name plus `_id` (`booking_id`, `court_id`, `user_id`); actor references are descriptive (`created_by_user_id`). Foreign key types match the referenced column.
+- **Identity:** authenticated identity originates in Supabase Auth and relates to the application profile. Do not finalize the physical identity relationships outside the Step 6.2 identity design.
+- **Time:** use `TIMESTAMPTZ` for actual instants; `created_at` defaults to `NOW()`; mutable records use `updated_at`. UTC for timestamp interchange; the facility's IANA timezone for schedule display. Operating hours and recurring Open Play schedules are local facility time; individual occurrences resolve to `TIMESTAMPTZ` instants. Never treat a local recurring schedule as an instant, and never silently rewrite historical occurrence timestamps when the facility timezone changes.
+- **Statuses and fixed values:** use `TEXT` with database `CHECK` constraints enforcing the exact approved values (statuses, session modes, skill levels, categories). No PostgreSQL ENUM types without a reviewed decision. Do not constrain genuinely free-form text without a documented reason. Keep application types and validation consistent with the database constraints; changing the permitted status values in a `CHECK` constraint requires a reviewed migration. Ordinary record-level lifecycle transitions need no migration but must go through authorized business operations and follow the approved Step 5 lifecycle rules.
+- **Deletion:** purpose-based, not universal soft deletion. Preserve historical records per Step 5; use lifecycle states for cancellation and completion, and inactive states where appropriate. Hard delete only when retention, privacy, and referential integrity permit. Add soft-deletion fields only for a documented entity-specific requirement.
+- **Audit fields:** `created_by_user_id` / `updated_by_user_id` only where actor attribution is meaningful; system operations may have no human actor. Actor fields do not establish authorization and do not replace the Audit History entity.
+- **Naming:** lowercase `snake_case`; plural table names; descriptive column names; descriptive constraint and index names after the prefixes `pk_` (primary key), `fk_` (foreign key), `uq_` (unique), `ck_` (check), `ex_` (exclusion), and `idx_` (index); action-oriented `snake_case` function names. No quoted case-sensitive identifiers or unnecessary abbreviations.
+- **Schema and security:** MVP tables live in the `public` schema, which does not mean public access. Control access with explicit grants, RLS, and server-side authorization; give privileged database operations explicit execution permissions. Add schemas only for a documented security or architectural need.
+- **Existing Step 5 names:** do not automatically rename Step 5 conceptual fields such as `owner_id`, `host_id`, or `actor_user_id`. Their final physical names are decided in the relevant schema-design section after their semantics and relationships are verified (`docs/04` section 4.1), and their business meaning is preserved.
+- **Still open:** exact identity relationships, the descriptive-name pattern after constraint/index prefixes, local-time and timezone-change representation, retention and foreign-key deletion behavior, audit-field coverage and nullability, and RLS policies, grants, and function security settings. Do not decide these by assumption.

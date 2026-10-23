@@ -4,6 +4,7 @@
 > Product source of truth: `docs/01-product-requirements.md`
 > Application architecture: `docs/02-application-architecture.md`
 > This document records the business rules, entity concepts, relationships, lifecycle states, integrity rules, and database-shaping decisions locked during Step 5. It is not a physical database schema.
+> Step 6 update: Step 6 schema design and supporting decisions are recorded in `docs/04-step-6-database-schema-design.md`. They do not change any decision in this document.
 
 ---
 
@@ -1386,6 +1387,8 @@ Game Result
 
 > **Updated by U10 (see section 10).** The notification system can notify invited players. The type list in this subsection remains a list of potential types; exact type names are finalized during schema design.
 
+> **Step 6 pointer (`docs/04-step-6-database-schema-design.md` section 3.10, item 3).** Notification delivery-job expiration is distinguished from notification-record retention: a delivery job may expire, but that does not delete or expire the notification record. See item 3 for the approved clarification. Expiration windows, retention periods, and cleanup mechanisms remain undecided.
+
 Notifications communicate system state but do not define system state.
 
 **Conceptual fields:**
@@ -1488,6 +1491,8 @@ ARCHIVED
 ### 5.32 Audit History
 
 > **Updated by U1, U4, U5, U16 (see section 10).** Score submission, game confirmation, administrative intervention, dispute resolution, result corrections, and participant/team corrections should be recorded in audit history.
+
+> **Step 6 pointer (`docs/04-step-6-database-schema-design.md` section 3.10, item 4).** Audit-history retention follows an approved retention policy; records are not deleted merely because they are old, and any deletion must be governed by an explicitly approved retention policy. See item 4 for the approved clarification. Retention periods, classifications, and deletion procedures remain undecided.
 
 **Conceptual fields:**
 

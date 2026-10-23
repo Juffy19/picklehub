@@ -4,6 +4,7 @@
 > Product source of truth: docs/01-product-requirements.md
 > This document defines the application's architectural structure and technical boundaries. It does not replace the product requirements.
 > Step 5 update: approved database and implementation decisions are recorded in `docs/03-step-5-database-decisions.md`. Section 23 summarizes how they update this document; sections affected carry a "Step 5 update" note. The original Step 4 text is preserved.
+> Step 6 update: approved physical database conventions (Step 6.1, conventions C1–C10) are recorded in `docs/04-step-6-database-schema-design.md`. Sections affected carry a "Step 6.1 update" note.
 
 ---
 
@@ -87,6 +88,8 @@ Technology context (see `CLAUDE.md` and `package.json`):
 - Next.js 16 App Router, React 19, TypeScript (strict), Tailwind CSS, React Compiler
 - Planned: Supabase (PostgreSQL, Supabase Auth), Vercel deployment
 - Next.js behavior is version-sensitive; consult `node_modules/next/dist/docs/` before implementing framework-dependent code (see `AGENTS.md`)
+
+> **Step 6 update (`docs/04-step-6-database-schema-design.md` section 3.10, item 6):** A background-processing capability is required for the approved notification and escalation workflows. It must support reliable processing and recovery from failures and respect approved job expiration, cancellation, and delivery-state rules. The worker technology, hosting platform, scheduling mechanism, detailed retry strategy, and deployment configuration remain undecided.
 
 ---
 
@@ -221,6 +224,8 @@ Rules:
 10. **Freshness.** Availability, capacity, and live session state must not be served from stale caches. Caching strategy is a deferred decision (section 21).
 11. **Timezone-consistent rendering.** Dates and times are presented in the configured facility timezone on both server and client.
 
+> **Step 6 update (`docs/04` section 3.10, item 7):** The facility timezone is authoritative for facility operating hours, court availability, closures, and facility-based schedules. A user timezone is a display preference for presenting dates and times to individual users when appropriate; it changes display only, never the stored instant. Detailed display rules, defaulting, and timezone selection remain undecided.
+
 ---
 
 ## 6. Security & Authorization
@@ -251,6 +256,8 @@ These are separate concerns. Being signed in never implies permission to act on 
 - Global permissions (for example, Facility Admin actions) are checked against stored role data, never against client-supplied claims.
 
 ### 6.4 Database Security
+
+> **Step 6.1 update (convention C10):** MVP application tables use PostgreSQL's `public` schema. `public` does not mean unrestricted access: access is controlled through explicit grants, RLS, and server-side authorization, and privileged database operations have explicit execution permissions and security boundaries. Exact RLS policies, grants, and database-function security settings remain future design work.
 
 - RLS is enabled on PickleHub tables as a second protection layer.
 - The browser may read data directly only where RLS policies explicitly permit it.
@@ -319,6 +326,8 @@ Exact constraint implementations are part of database design.
 - Next-game generation must be safe to retry.
 
 ### 7.5 Time
+
+> **Step 6.1 update (conventions C3, C4):** Actual instants are stored as PostgreSQL `TIMESTAMPTZ`; UTC is used for timestamp interchange and the facility timezone (an IANA identifier) for schedule display. Operating hours and recurring Open Play schedules are local facility time; individual occurrences resolve to `TIMESTAMPTZ` instants, and historical occurrence timestamps are not silently rewritten if the facility timezone changes.
 
 - Timestamps are stored with timezone information.
 - The facility timezone is configurable facility data. It must not be hardcoded.
@@ -865,6 +874,8 @@ These are **open product questions**. They must be answered before the related f
 
 ## 21. Deferred Decisions
 
+> **Step 6.1 update:** Database naming, key, timestamp, status, deletion, audit-field, and schema-organization conventions are decided in `docs/04-step-6-database-schema-design.md`. Migration tooling, exact constraint implementations, atomic persistence mechanisms, and the Supabase client/credential strategy remain deferred to later Step 6 work.
+>
 > **Step 5 update:** Notification delivery is now decided: in-app and email for MVP. Payment processing is excluded from MVP (U11, I12). Statistics storage remains as stated: cached statistics are optional and rebuildable. Additional deferred items are listed in `docs/03-step-5-database-decisions.md` sections 8 and 8.1.
 
 These are **deferred technical decisions**. They do not require new product rules but will be decided at the appropriate implementation stage.
@@ -913,6 +924,11 @@ Step 5 update:
 
 - Step 5 database and implementation decisions are finalized in `docs/03-step-5-database-decisions.md`.
 - The next stage is Step 6 — physical PostgreSQL/Supabase schema design.
+
+Step 6 update:
+
+- Step 6.1 database conventions are recorded in `docs/04-step-6-database-schema-design.md`.
+- Step 6.1 — Database Conventions is approved and complete. Step 6 documentation was formally finalized by the project owner on 2026-10-23: decisions 6.2.1–6.2.131 are approved and recorded in `docs/04-step-6-database-schema-design.md` section 3 as reconstructed summaries, not verbatim approval records; reconciliation items 1–12 are approved and reviewed (`docs/04` section 3.10); remaining policy and implementation questions are deferred and still open. Decision 6.2.132 and Step 7 have not started; Step 7 requires separate owner authorization.
 
 ---
 
@@ -970,7 +986,7 @@ This section summarizes how the approved Step 5 decisions (`docs/03-step-5-datab
 | Q25 — guest games and registered stats | Resolved | Confirmed participation counts for registered players; guests get no global stats |
 | Q26 — payments | Resolved | Excluded from MVP; fees informational (U11, I12) |
 | Q27 — Facility Staff permissions | Deferred | Facility Staff role deferred |
-| Q28 — profile visibility | Open | Not decided |
+| Q28 — profile visibility | Resolved in part | Players independently control visibility of profile information, aggregate statistics, and skill level (`docs/04` section 3.10, item 2); default visibility not decided |
 | Q29 — attendance vs playing for stats | Resolved in part | Attendance from check-in; "Court Sessions Played" definition still to confirm |
 | Q30 — game in progress at session end | Resolved | Unresolved active game prevents normal completion; booking-end overrun handling deferred (U18) |
 | Q31 — Learn content management | Open | Not decided |

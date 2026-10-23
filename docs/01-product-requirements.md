@@ -2247,7 +2247,7 @@ Setup**.
 
 ## Post-Step-1 Amendments
 
-The following product amendments were approved during Step 5 (Database & Implementation Decisions). The original Step 1 sections above are preserved as the historical record; where they differ, these amendments take precedence. Decision IDs refer to `docs/03-step-5-database-decisions.md`.
+The following product amendments were approved during Step 5 (Database & Implementation Decisions) and later steps. The original Step 1 sections above are preserved as the historical record; where they differ, these amendments take precedence. Decision IDs refer to `docs/03-step-5-database-decisions.md`.
 
 ### A1. Result Recording and Confirmation (supersedes the confirmation flow in §15, §16, §43)
 
@@ -2306,3 +2306,10 @@ The following product amendments were approved during Step 5 (Database & Impleme
 - One account may be both a Player and a Facility Admin (U14).
 - "Facility Administrators: the facility owner or staff members" (§3.3) is represented by the FACILITY_ADMIN role in MVP; a separate Facility Staff role is deferred.
 - Session Host, Open Play Host, and Authorized Scorer are contextual to a specific session, not global roles.
+
+### A9. Profile Visibility (refines §23)
+
+Approved during Step 6; the authoritative text is `docs/04-step-6-database-schema-design.md` section 3.10, item 2.
+
+- Profile visibility is independently controlled by the player. Public visibility of profile information, approved aggregate statistics, and self-reported skill level follows the visibility policy documented in Step 6 reconciliation item 2.
+- The default visibility for new players and visibility after reactivation are not yet decided.
